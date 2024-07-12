@@ -17,7 +17,7 @@ handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
 # 初始化OpenAI API Key
 openai.api_key = os.getenv('OPENAI_API_KEY')
-client = OpenAI()
+client = openai()
 
 # OpenAI助手ID
 ASSISTANT_ID = "asst_H4JiVadUvQzVI77CrgsdOk62"
