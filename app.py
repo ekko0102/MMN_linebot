@@ -15,38 +15,40 @@ line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 # Channel Secret
 handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 # OPENAI API Key初始化設定
-openai.api_key = os.getenv('OPENAI_API_KEY')
+openai_api_key = os.getenv('OPENAI_API_KEY')
+if not openai_api_key:
+    raise ValueError("OpenAI API key is not set in environment variables")
+openai.api_key = openai_api_key
 
 ASSISTANT_ID = os.getenv('OPENAI_MODEL_ID')
 
 def GPT_response(text):
-    client = openai.OpenAI()
-    
-    # Create a thread with a message
-    thread = client.beta.threads.create(
-        messages=[
-            {
-                "role": "user",
-                "content": text,
-            }
-        ]
-    )
-    
-    # Submit the thread to the assistant (as a new run)
-    run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=ASSISTANT_ID)
-    
-    # Wait for run to complete
-    while run.status != "completed":
-        run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-        time.sleep(1)
-    
-    # Get the latest message from the thread
-    message_response = client.beta.threads.messages.list(thread_id=thread.id)
-    messages = message_response.data
-
-    # Print the latest message
-    latest_message = messages[0]
-    return latest_message.content[0].text.value
+    try:
+        client = openai.OpenAI()
+        # Create a thread with a message
+        thread = client.beta.threads.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": text,
+                }
+            ]
+        )
+        # Submit the thread to the assistant (as a new run)
+        run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=ASSISTANT_ID)
+        # Wait for run to complete
+        while run.status != "completed":
+            run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+            time.sleep(1)
+        # Get the latest message from the thread
+        message_response = client.beta.threads.messages.list(thread_id=thread.id)
+        messages = message_response.data
+        # Print the latest message
+        latest_message = messages[0]
+        return latest_message.content[0].text.value
+    except Exception as e:
+        print("Error in GPT_response:", e)
+        raise
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -67,7 +69,7 @@ def handle_message(event):
     try:
         GPT_answer = GPT_response(msg)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(GPT_answer))
-    except:
+    except Exception as e:
         print(traceback.format_exc())
         line_bot_api.reply_message(event.reply_token, TextSendMessage('你所使用的OPENAI API key額度可能已經超過，請於後台Log內確認錯誤訊息'))
 
