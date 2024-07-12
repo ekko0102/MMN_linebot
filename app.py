@@ -5,7 +5,7 @@ from linebot.models import *
 import os
 import time
 import traceback
-from openai import OpenAI
+import openai
 
 # 初始化Flask應用
 app = Flask(__name__)
