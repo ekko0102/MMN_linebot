@@ -5,7 +5,7 @@ from linebot.models import *
 import os
 import time
 import traceback
-import openai
+from openai import OpenAI
 
 # 初始化Flask應用
 app = Flask(__name__)
@@ -17,7 +17,7 @@ handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 
 # 初始化OpenAI API Key
 openai.api_key = os.getenv('OPENAI_API_KEY')
-client = openai()
+client = OpenAI()
 
 # OpenAI助手ID
 ASSISTANT_ID = "asst_H4JiVadUvQzVI77CrgsdOk62"
@@ -75,12 +75,10 @@ def handle_message(event):
         print(traceback.format_exc())
         line_bot_api.reply_message(event.reply_token, TextSendMessage('你所使用的OPENAI API key額度可能已經超過，請於後台Log內確認錯誤訊息'))
 
-# 處理回撥事件
 @handler.add(PostbackEvent)
 def handle_message(event):
     print(event.postback.data)
 
-# 歡迎新成員事件
 @handler.add(MemberJoinedEvent)
 def welcome(event):
     uid = event.joined.members[0].user_id
