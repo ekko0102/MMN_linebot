@@ -51,22 +51,22 @@ def GPT_response(text):
         print("Error in GPT_response:", e)
         raise
 
-def send_loading_animation(chat_id, loading_seconds=5):
-    url = 'https://api.line.me/v2/bot/chat/loading/start'  # 更新的 API Endpoint
+def send_loading_animation(chat_id):
+    url = 'https://api.line.me/v2/bot/chat/loading/start'
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {os.getenv("CHANNEL_ACCESS_TOKEN")}'
     }
     data = {
-        "chatId": chat_id,
-        "loadingSeconds": loading_seconds
+        "chatId": chat_id
     }
     response = requests.post(url, headers=headers, json=data)
-    if response.status_code != 200:
+    if response.status_code != 202:
         print(f"傳送載入動畫失敗： {response.status_code}，{response.text}")
     else:
         print("載入動畫已成功發送")
     return response.status_code, response.text
+
 
 def get_chat_id(event):
     if event.source.type == 'user':
