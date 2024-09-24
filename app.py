@@ -6,6 +6,7 @@ import os
 import openai
 import time
 import traceback
+import requests  # 新增的匯入
 
 app = Flask(__name__)
 static_tmp_path = os.path.join(os.path.dirname(__file__), 'static', 'tmp')
@@ -50,6 +51,31 @@ def GPT_response(text):
         print("Error in GPT_response:", e)
         raise
 
+def send_loading_animation(chat_id, loading_seconds=5):
+    url = 'https://api.line.me/v2/bot/message/progress/animation/send'
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {os.getenv("CHANNEL_ACCESS_TOKEN")}'
+    }
+    data = {
+        "chatId": chat_id,
+        "loadingSeconds": loading_seconds
+    }
+    response = requests.post(url, headers=headers, json=data)
+    if response.status_code != 200:
+        print(f"Failed to send loading animation: {response.status_code}, {response.text}")
+    return response.status_code, response.text
+
+def get_chat_id(event):
+    if event.source.type == 'user':
+        return event.source.user_id
+    elif event.source.type == 'group':
+        return event.source.group_id
+    elif event.source.type == 'room':
+        return event.source.room_id
+    else:
+        return None
+
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers['X-Line-Signature']
@@ -67,14 +93,21 @@ def callback():
 def handle_message(event):
     msg = event.message.text
     try:
+        # 獲取 chat_id
+        chat_id = get_chat_id(event)
+        if chat_id:
+            # 發送載入動畫
+            send_loading_animation(chat_id, loading_seconds=5)
+        
+        # 處理用戶訊息
         GPT_answer = GPT_response(msg)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(GPT_answer))
     except Exception as e:
         print(traceback.format_exc())
-        line_bot_api.reply_message(event.reply_token, TextSendMessage('你所使用的OPENAI API key額度可能已經超過，請於後台Log內確認錯誤訊息'))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage('你所使用的 OPENAI API key 額度可能已經超過，請於後台 Log 內確認錯誤訊息'))
 
 @handler.add(PostbackEvent)
-def handle_message(event):
+def handle_postback(event):
     print(event.postback.data)
 
 @handler.add(MemberJoinedEvent)
@@ -83,7 +116,7 @@ def welcome(event):
     gid = event.source.group_id
     profile = line_bot_api.get_group_member_profile(gid, uid)
     name = profile.display_name
-    message = TextSendMessage(text=f'{name}歡迎加入')
+    message = TextSendMessage(text=f'{name} 歡迎加入')
     line_bot_api.reply_message(event.reply_token, message)
 
 if __name__ == "__main__":
