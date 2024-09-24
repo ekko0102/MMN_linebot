@@ -6,7 +6,7 @@ import os
 import openai
 import time
 import traceback
-import requests  # 新增的匯入
+import requests  # 確保已匯入 requests 模組
 
 app = Flask(__name__)
 static_tmp_path = os.path.join(os.path.dirname(__file__), 'static', 'tmp')
@@ -52,18 +52,20 @@ def GPT_response(text):
         raise
 
 def send_loading_animation(chat_id, loading_seconds=5):
-    url = 'https://api.line.me/v2/bot/message/progress/animation/send'
+    url = 'https://api.line.me/v2/bot/message/progress/animation'  # 修正了 URL
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {os.getenv("CHANNEL_ACCESS_TOKEN")}'
     }
     data = {
         "chatId": chat_id,
-        "loadingSeconds": loading_seconds
+        "timeout": loading_seconds  # 使用正確的參數名稱
     }
     response = requests.post(url, headers=headers, json=data)
-    if response.status_code != 200:
-        print(f"Failed to send loading animation: {response.status_code}, {response.text}")
+    if response.status_code != 202:
+        print(f"傳送載入動畫失敗： {response.status_code}，{response.text}")
+    else:
+        print("載入動畫已成功發送")
     return response.status_code, response.text
 
 def get_chat_id(event):
