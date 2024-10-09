@@ -99,7 +99,7 @@ def handle_message(event):
         chat_id = get_chat_id(event)
         if chat_id:
             # 發送載入動畫
-            send_loading_animation(chat_id, loading_seconds=5)
+            send_loading_animation(chat_id)
         
         # 處理用戶訊息
         GPT_answer = GPT_response(msg)
