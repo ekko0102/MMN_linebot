@@ -67,7 +67,6 @@ def send_loading_animation(chat_id):
         print("載入動畫已成功發送")
     return response.status_code, response.text
 
-
 def get_chat_id(event):
     if event.source.type == 'user':
         return event.source.user_id
@@ -95,15 +94,17 @@ def callback():
 def handle_message(event):
     msg = event.message.text
     try:
-        # 獲取 chat_id
-        chat_id = get_chat_id(event)
-        if chat_id:
-            # 發送載入動畫
-            send_loading_animation(chat_id)
+        # 立即回覆一個"正在處理"的消息
+        line_bot_api.reply_message(event.reply_token, TextSendMessage("我們正在處理你的請求，請稍等..."))
         
         # 處理用戶訊息
         GPT_answer = GPT_response(msg)
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(GPT_answer))
+        
+        # 獲取 chat_id
+        chat_id = get_chat_id(event)
+        if chat_id:
+            # 發送 GPT 回覆結果
+            line_bot_api.push_message(chat_id, TextSendMessage(GPT_answer))
     except Exception as e:
         print(traceback.format_exc())
         line_bot_api.reply_message(event.reply_token, TextSendMessage('你所使用的 OPENAI API key 額度可能已經超過，請於後台 Log 內確認錯誤訊息'))
@@ -119,7 +120,7 @@ def welcome(event):
     profile = line_bot_api.get_group_member_profile(gid, uid)
     name = profile.display_name
     message = TextSendMessage(text=f'{name} 歡迎加入')
-    line_bot_api.reply_message(event.reply_token, message)
+    line_bot_api.push_message(gid, message)
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
