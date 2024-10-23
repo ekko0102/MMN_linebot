@@ -7,9 +7,14 @@ import openai
 import time
 import traceback
 import requests
+import redis
 
 app = Flask(__name__)
-static_tmp_path = os.path.join(os.path.dirname(__file__), 'static', 'tmp')
+
+# Redis 連接設定
+redis_host = os.getenv('REDIS_HOST', 'localhost')
+redis_port = os.getenv('REDIS_PORT', 6379)
+redis_db = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 
 # Channel Access Token
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
@@ -23,30 +28,52 @@ openai.api_key = openai_api_key
 
 ASSISTANT_ID = os.getenv('OPENAI_MODEL_ID')
 
-def GPT_response(text):
+def GPT_response(user_id, text):
     try:
+        # 嘗試從 Redis 中取得 thread_id
+        thread_id = redis_db.get(f"thread_id:{user_id}")
+        
         client = openai.OpenAI()
-        # Create a thread with a message
-        thread = client.beta.threads.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": text,
-                }
-            ]
-        )
-        # Submit the thread to the assistant (as a new run)
-        run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=ASSISTANT_ID)
-        # Wait for run to complete
+
+        # 如果 Redis 中沒有 thread_id，創建新的 thread
+        if not thread_id:
+            thread = client.beta.threads.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": text,
+                    }
+                ]
+            )
+            thread_id = thread.id
+            # 將新的 thread_id 保存到 Redis 中
+            redis_db.set(f"thread_id:{user_id}", thread_id)
+        else:
+            # 如果已經有 thread_id，則添加新的訊息
+            client.beta.threads.messages.create(
+                thread_id=thread_id,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": text,
+                    }
+                ]
+            )
+        
+        # 提交 thread 給 assistant
+        run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID)
+
+        # 等待 run 完成
         while run.status != "completed":
-            run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+            run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
             time.sleep(1)
-        # Get the latest message from the thread
-        message_response = client.beta.threads.messages.list(thread_id=thread.id)
+        
+        # 獲取最新的訊息
+        message_response = client.beta.threads.messages.list(thread_id=thread_id)
         messages = message_response.data
-        # Print the latest message
         latest_message = messages[0]
         return latest_message.content[0].text.value
+
     except Exception as e:
         print("Error in GPT_response:", e)
         raise
@@ -102,8 +129,9 @@ def handle_message(event):
             # 發送載入動畫
             send_loading_animation(chat_id)
         
-        # 處理用戶訊息
-        GPT_answer = GPT_response(msg)
+        # 處理用戶訊息，使用 user_id 當作 Redis key
+        user_id = chat_id
+        GPT_answer = GPT_response(user_id, msg)
         
         # 發送 GPT 回覆結果
         line_bot_api.push_message(chat_id, TextSendMessage(GPT_answer))
