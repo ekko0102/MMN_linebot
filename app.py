@@ -61,6 +61,23 @@ def GPT_response(chat_id, text):
         print("Error in GPT_response:", e)
         raise
 
+def send_loading_animation(chat_id, loading_seconds=5):
+    url = 'https://api.line.me/v2/bot/chat/loading/start'
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {os.getenv("CHANNEL_ACCESS_TOKEN")}'
+    }
+    data = {
+        "chatId": chat_id,
+        "loadingSeconds": loading_seconds
+    }
+    response = requests.post(url, headers=headers, json=data)
+    if response.status_code != 202:
+        print(f"傳送載入動畫失敗： {response.status_code}，{response.text}")
+    else:
+        print("載入動畫已成功發送")
+    return response.status_code, response.text
+
 def get_chat_id(event):
     if event.source.type == 'user':
         return event.source.user_id
@@ -90,8 +107,8 @@ def handle_message(event):
     chat_id = get_chat_id(event)
 
     try:
-        # 立即回覆一個"正在處理"的消息
-        line_bot_api.reply_message(event.reply_token, TextSendMessage("我們正在處理你的請求，請稍等..."))
+        # 先發送載入動畫
+        send_loading_animation(chat_id, loading_seconds=5)
 
         # 使用者訊息處理
         GPT_answer = GPT_response(chat_id, msg)
