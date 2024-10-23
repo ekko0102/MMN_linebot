@@ -3,3 +3,4 @@ line-bot-sdk
 openai
 redis
 requests
+gunicorn
