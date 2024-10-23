@@ -10,6 +10,7 @@ import requests
 import redis
 import json
 
+
 app = Flask(__name__)
 static_tmp_path = os.path.join(os.path.dirname(__file__), 'static', 'tmp')
 
