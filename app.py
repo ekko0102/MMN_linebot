@@ -28,35 +28,44 @@ session_dict = {}
 
 def GPT_response(chat_id, text):
     try:
-        # 如果該使用者已有上下文，將其加入對話
+        client = openai.OpenAI()
+        
+        # 檢查是否已有上下文，沒有則初始化
         if chat_id in session_dict:
             messages = session_dict[chat_id]
         else:
             messages = []
         
-        # 將使用者的新訊息加入對話
+        # 新的用戶訊息加入對話歷程
         messages.append({
             "role": "user",
             "content": text
         })
 
-        # 呼叫 OpenAI API，並將整個對話歷程傳入
-        response = openai.ChatCompletion.create(
-            model=ASSISTANT_ID,
+        # 創建新的線程並發送對話歷程
+        thread = client.beta.threads.create(
             messages=messages
         )
+        # 提交線程並創建一個執行
+        run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=ASSISTANT_ID)
 
-        # 將回應加入對話歷程
-        assistant_message = response['choices'][0]['message']['content']
-        messages.append({
+        # 等待執行完成
+        while run.status != "completed":
+            run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+            time.sleep(1)
+        
+        # 獲取最新的回應消息
+        message_response = client.beta.threads.messages.list(thread_id=thread.id)
+        messages = message_response.data
+        latest_message = messages[0].content[0].text.value
+
+        # 保存回應到上下文
+        session_dict[chat_id].append({
             "role": "assistant",
-            "content": assistant_message
+            "content": latest_message
         })
 
-        # 更新 session_dict，保存這次對話
-        session_dict[chat_id] = messages
-
-        return assistant_message
+        return latest_message
     except Exception as e:
         print("Error in GPT_response:", e)
         raise
@@ -107,10 +116,10 @@ def handle_message(event):
     chat_id = get_chat_id(event)
 
     try:
-        # 先發送載入動畫
+        # 發送載入動畫
         send_loading_animation(chat_id, loading_seconds=5)
 
-        # 使用者訊息處理
+        # 處理用戶訊息，並加入上下文
         GPT_answer = GPT_response(chat_id, msg)
 
         # 發送 GPT 回覆結果
