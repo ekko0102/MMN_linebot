@@ -11,6 +11,7 @@ import json
 
 app = Flask(__name__)
 
+
 # Channel Access Token
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
 # Channel Secret
