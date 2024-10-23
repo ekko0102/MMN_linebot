@@ -23,49 +23,43 @@ openai.api_key = openai_api_key
 
 ASSISTANT_ID = os.getenv('OPENAI_MODEL_ID')
 
-def GPT_response(text):
+# 用來保存每個使用者的對話上下文
+session_dict = {}
+
+def GPT_response(chat_id, text):
     try:
-        client = openai.OpenAI()
-        # Create a thread with a message
-        thread = client.beta.threads.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": text,
-                }
-            ]
+        # 如果該使用者已有上下文，將其加入對話
+        if chat_id in session_dict:
+            messages = session_dict[chat_id]
+        else:
+            messages = []
+        
+        # 將使用者的新訊息加入對話
+        messages.append({
+            "role": "user",
+            "content": text
+        })
+
+        # 呼叫 OpenAI API，並將整個對話歷程傳入
+        response = openai.ChatCompletion.create(
+            model=ASSISTANT_ID,
+            messages=messages
         )
-        # Submit the thread to the assistant (as a new run)
-        run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=ASSISTANT_ID)
-        # Wait for run to complete
-        while run.status != "completed":
-            run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-            time.sleep(1)
-        # Get the latest message from the thread
-        message_response = client.beta.threads.messages.list(thread_id=thread.id)
-        messages = message_response.data
-        # Print the latest message
-        latest_message = messages[0]
-        return latest_message.content[0].text.value
+
+        # 將回應加入對話歷程
+        assistant_message = response['choices'][0]['message']['content']
+        messages.append({
+            "role": "assistant",
+            "content": assistant_message
+        })
+
+        # 更新 session_dict，保存這次對話
+        session_dict[chat_id] = messages
+
+        return assistant_message
     except Exception as e:
         print("Error in GPT_response:", e)
         raise
-
-def send_loading_animation(chat_id):
-    url = 'https://api.line.me/v2/bot/chat/loading/start'
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {os.getenv("CHANNEL_ACCESS_TOKEN")}'
-    }
-    data = {
-        "chatId": chat_id
-    }
-    response = requests.post(url, headers=headers, json=data)
-    if response.status_code != 202:
-        print(f"傳送載入動畫失敗： {response.status_code}，{response.text}")
-    else:
-        print("載入動畫已成功發送")
-    return response.status_code, response.text
 
 def get_chat_id(event):
     if event.source.type == 'user':
@@ -93,18 +87,17 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     msg = event.message.text
+    chat_id = get_chat_id(event)
+
     try:
         # 立即回覆一個"正在處理"的消息
         line_bot_api.reply_message(event.reply_token, TextSendMessage("我們正在處理你的請求，請稍等..."))
-        
-        # 處理用戶訊息
-        GPT_answer = GPT_response(msg)
-        
-        # 獲取 chat_id
-        chat_id = get_chat_id(event)
-        if chat_id:
-            # 發送 GPT 回覆結果
-            line_bot_api.push_message(chat_id, TextSendMessage(GPT_answer))
+
+        # 使用者訊息處理
+        GPT_answer = GPT_response(chat_id, msg)
+
+        # 發送 GPT 回覆結果
+        line_bot_api.push_message(chat_id, TextSendMessage(GPT_answer))
     except Exception as e:
         print(traceback.format_exc())
         line_bot_api.reply_message(event.reply_token, TextSendMessage('你所使用的 OPENAI API key 額度可能已經超過，請於後台 Log 內確認錯誤訊息'))
