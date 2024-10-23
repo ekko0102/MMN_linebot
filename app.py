@@ -19,7 +19,7 @@ handler = WebhookHandler(os.getenv('CHANNEL_SECRET'))
 openai_api_key = os.getenv('OPENAI_API_KEY')
 if not openai_api_key:
     raise ValueError("OpenAI API key is not set in environment variables")
-openai.api_key = openai_api_key
+
 
 ASSISTANT_ID = os.getenv('OPENAI_MODEL_ID')
 
