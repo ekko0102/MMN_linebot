@@ -10,7 +10,6 @@ import requests
 import redis
 import json
 
-
 app = Flask(__name__)
 static_tmp_path = os.path.join(os.path.dirname(__file__), 'static', 'tmp')
 
@@ -45,27 +44,23 @@ def GPT_response(chat_id, text):
     try:
         client = openai.OpenAI()
 
-        # 從 Redis 中獲取該使用者的上下文
+        # 從 Redis 中獲取該使用者的最新上下文（僅保留一對最新的訊息）
         messages = get_user_context(chat_id)
-        
+
         # 新的用戶訊息加入對話歷程
         messages.append({
             "role": "user",
             "content": text
         })
 
-        # 呼叫 OpenAI API
-        thread = client.beta.threads.create(messages=messages)
-        run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=ASSISTANT_ID)
-
-        # 等待執行完成
-        while run.status != "completed":
-            run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-            time.sleep(1)
+        # 呼叫 OpenAI API，只傳送最新的訊息給 GPT
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=messages[-2:]  # 只傳送最新的兩條訊息
+        )
 
         # 獲取 GPT 最新的回應
-        message_response = client.beta.threads.messages.list(thread_id=thread.id)
-        latest_message = message_response.data[0].content[0].text.value
+        latest_message = response['choices'][0]['message']['content']
 
         # 將 GPT 的回應加入上下文
         messages.append({
@@ -73,8 +68,8 @@ def GPT_response(chat_id, text):
             "content": latest_message
         })
 
-        # 保存更新後的上下文到 Redis
-        save_user_context(chat_id, messages)
+        # 保存更新後的上下文到 Redis，只保留最新的 2 條訊息
+        save_user_context(chat_id, messages[-4:])
 
         return latest_message
     except Exception as e:
