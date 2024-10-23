@@ -58,7 +58,8 @@ def send_loading_animation(chat_id):
         'Authorization': f'Bearer {os.getenv("CHANNEL_ACCESS_TOKEN")}'
     }
     data = {
-        "chatId": chat_id
+        "chatId": chat_id,
+        "loadingSeconds": 5  # 設定動畫持續時間為5秒
     }
     response = requests.post(url, headers=headers, json=data)
     if response.status_code != 202:
@@ -94,17 +95,19 @@ def callback():
 def handle_message(event):
     msg = event.message.text
     try:
-        # 立即回覆一個"正在處理"的消息
-        line_bot_api.reply_message(event.reply_token, TextSendMessage("我們正在處理你的請求，請稍等..."))
+        # 獲取 chat_id
+        chat_id = get_chat_id(event)
+        
+        if chat_id:
+            # 發送載入動畫
+            send_loading_animation(chat_id)
         
         # 處理用戶訊息
         GPT_answer = GPT_response(msg)
         
-        # 獲取 chat_id
-        chat_id = get_chat_id(event)
-        if chat_id:
-            # 發送 GPT 回覆結果
-            line_bot_api.push_message(chat_id, TextSendMessage(GPT_answer))
+        # 發送 GPT 回覆結果
+        line_bot_api.push_message(chat_id, TextSendMessage(GPT_answer))
+        
     except Exception as e:
         print(traceback.format_exc())
         line_bot_api.reply_message(event.reply_token, TextSendMessage('你所使用的 OPENAI API key 額度可能已經超過，請於後台 Log 內確認錯誤訊息'))
