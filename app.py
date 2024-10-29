@@ -119,6 +119,7 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     msg = event.message.text
+    print('目前發送的訊息'+msg)
     try:
         # 獲取 chat_id
         chat_id = get_chat_id(event)
