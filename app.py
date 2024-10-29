@@ -60,7 +60,7 @@ def GPT_response(user_id, text):
                 ]
             )
         
-        # 提交 thread 給 assistant
+        # 提交 thread 給 assistant 並取得最新的回覆
         run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID)
 
         # 等待 run 完成
@@ -68,15 +68,22 @@ def GPT_response(user_id, text):
             run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
             time.sleep(1)
         
-        # 獲取最新的訊息
+        # 獲取最新的 AI 回覆
         message_response = client.beta.threads.messages.list(thread_id=thread_id)
         messages = message_response.data
-        latest_message = messages[0]
-        return latest_message.content[0].text.value
 
+        # 只回傳角色為 assistant 的最新訊息
+        latest_message = next((msg for msg in messages if msg['role'] == 'assistant'), None)
+
+        if latest_message:
+            return latest_message['content'][0]['text']['value']
+        else:
+            return "抱歉，無法獲取 AI 回覆。"
+        
     except Exception as e:
         print("Error in GPT_response:", e)
         raise
+
 
 def send_loading_animation(chat_id):
     url = 'https://api.line.me/v2/bot/chat/loading/start'
