@@ -128,21 +128,17 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     msg = event.message.text
-    print('目前發送的訊息'+msg)
+    print('目前發送的訊息' + msg)
     try:
         # 獲取 chat_id
         chat_id = get_chat_id(event)
-        
-        if chat_id:
-            # 發送載入動畫
-            send_loading_animation(chat_id)
         
         # 處理用戶訊息，使用 user_id 當作 Redis key
         user_id = chat_id
         GPT_answer = GPT_response(user_id, msg)
         
-        # 發送 GPT 回覆結果
-        line_bot_api.push_message(chat_id, TextSendMessage(GPT_answer))
+        # 發送 GPT 回覆結果，使用 reply_message
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(GPT_answer))
         
     except Exception as e:
         print(traceback.format_exc())
