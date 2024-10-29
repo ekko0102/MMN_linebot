@@ -58,10 +58,17 @@ def GPT_response(user_id, text):
             redis_db.set(f"thread_id:{user_id}", thread_id)
         else:
             # 檢查目前的 thread 是否有未完成的 run
+            max_retries = 10  # 設置最大等待次數
+            retry_count = 0
             active_runs = client.beta.threads.runs.list(thread_id=thread_id).data
+
             while active_runs and any(run.status != "completed" for run in active_runs):
                 print("當前 thread 的運行尚未完成，等待中...")
                 time.sleep(2)  # 等待 2 秒後重新檢查
+                retry_count += 1
+                if retry_count >= max_retries:
+                    print("等待超時，請稍後再試。")
+                    return "系統繁忙，請稍後再試。"  # 回傳錯誤訊息
                 active_runs = client.beta.threads.runs.list(thread_id=thread_id).data
 
             # 發送訊息至 thread
