@@ -57,12 +57,17 @@ def GPT_response(user_id, text):
             # 將新的 thread_id 保存到 Redis 中
             redis_db.set(f"thread_id:{user_id}", thread_id)
         else:
-            # 如果已經有 thread_id，則添加新的訊息
             response = client.beta.threads.messages.create(
                 thread_id=thread_id,
-                content=text  # 確認 API 的參數名稱
+                messages=[
+                    {
+                        "role": "user",
+                        "content": text,
+                    }
+                ]
             )
             print("API 回傳訊息：", response)  # 印出 API 回傳結果
+
 
         # 提交 thread 給 assistant 並取得最新的回覆
         run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID)
