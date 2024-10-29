@@ -149,13 +149,23 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     msg = event.message.text
-    print('目前發送的訊息' + msg)
+    print('目前發送的訊息：' + msg)
+
     try:
         # 獲取 chat_id
         chat_id = get_chat_id(event)
+        
+        # 判斷是否在群組中，並且訊息是否包含特定關鍵字（例如 "bot" 或特定標籤）
+        if event.source.type == 'group':
+            if 'bot' not in msg.lower() and '@您的Bot名稱' not in msg:
+                print("非針對 bot 的訊息，略過回應")
+                return  # 當訊息不包含 "bot" 或特定標籤時不回應
+            
+        # 個人聊天室或符合條件的群組訊息才繼續執行
         if chat_id:
-            #發送載入動畫
+            # 發送載入動畫
             send_loading_animation(chat_id)
+        
         # 處理用戶訊息，使用 user_id 當作 Redis key
         user_id = chat_id
         GPT_answer = GPT_response(user_id, msg)
