@@ -40,13 +40,10 @@ def GPT_response(user_id, text):
 
         # 如果 Redis 中沒有 thread_id，創建新的 thread
         if not thread_id:
-            thread = client.beta.threads.create(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": text,
-                    }
-                ]
+            thread = client.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",  # 指定訊息角色為 "user"
+                content=text  # 用戶的訊息內容
             )
             thread_id = thread.id
             # 將新的 thread_id 保存到 Redis 中
@@ -55,12 +52,8 @@ def GPT_response(user_id, text):
             # 如果已經有 thread_id，則添加新的訊息
             client.beta.threads.messages.create(
                 thread_id=thread_id,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": text,
-                    }
-                ]
+                role="user",  # 指定訊息角色為 "user"
+                content=text  # 用戶的訊息內容
             )
         
         # 提交 thread 給 assistant
