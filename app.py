@@ -37,40 +37,49 @@ def GPT_response(user_id, text):
         # 嘗試從 Redis 中取得 thread_id
         thread_id = redis_db.get(f"thread_id:{user_id}")
         
+        # 初始化 OpenAI 客戶端
         client = openai.OpenAI()
 
         # 如果 Redis 中沒有 thread_id，創建新的 thread
         if not thread_id:
-            thread = client.beta.threads.messages.create(
-                thread_id=thread_id,
-                role="user",  # 指定訊息角色為 "user"
-                content=text  # 用戶的訊息內容
-            )
+            thread = client.beta.threads.create()
             thread_id = thread.id
             # 將新的 thread_id 保存到 Redis 中
             redis_db.set(f"thread_id:{user_id}", thread_id)
-        else:
-            # 如果已經有 thread_id，則添加新的訊息
-            client.beta.threads.messages.create(
-                thread_id=thread_id,
-                role="user",  # 指定訊息角色為 "user"
-                content=text  # 用戶的訊息內容
-            )
+        
+        # 添加用戶的訊息到 thread
+        client.beta.threads.messages.create(
+            thread_id=thread_id,
+            role="user",    # 指定訊息角色為 "user"
+            content=text    # 用戶的訊息內容
+        )
         
         # 提交 thread 給 assistant
         run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID)
 
         # 等待 run 完成
         while run.status != "completed":
-            run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
             time.sleep(1)
+            run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
         
-        # 獲取最新的訊息
+        # 獲取所有訊息
         message_response = client.beta.threads.messages.list(thread_id=thread_id)
         messages = message_response.data
-        latest_message = messages[0]
-        print("最新的訊息內容：", latest_message.content[0].text.value)
-        return latest_message.content[0].text.value
+
+        # 倒序遍歷消息，找到最新的助手回覆
+        latest_message = None
+        for message in reversed(messages):
+            if message.role == 'assistant':
+                latest_message = message
+                break
+
+        if latest_message is not None:
+            assistant_reply = latest_message.content[0].text.value
+            print("最新的訊息內容：", assistant_reply)
+            return assistant_reply
+        else:
+            print("未找到助手的回覆。")
+            return "抱歉，我無法取得助手的回覆。"
 
     except Exception as e:
         print("Error in GPT_response:", e)
