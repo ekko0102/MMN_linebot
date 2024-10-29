@@ -38,7 +38,7 @@ def GPT_response(user_id, text):
         client = openai.OpenAI()
 
         # 設置最大等待時間，避免無限等待
-        max_wait_time = 30  # 最長等待時間（秒）
+        max_wait_time = 15  # 最長等待時間（秒）
         start_time = time.time()
 
         if not thread_id:
@@ -114,7 +114,7 @@ def send_loading_animation(chat_id):
     }
     data = {
         "chatId": chat_id,
-        "loadingSeconds": 5  # 設定動畫持續時間為5秒
+        "loadingSeconds": 10  # 設定動畫持續時間為5秒
     }
     response = requests.post(url, headers=headers, json=data)
     if response.status_code != 202:
@@ -157,7 +157,7 @@ def handle_message(event):
         
         # 判斷是否在群組中，並且訊息是否包含特定關鍵字（例如 "bot" 或特定標籤）
         if event.source.type == 'group':
-            if 'bot' not in msg.lower() and '@您的Bot名稱' not in msg:
+            if 'bot' not in msg.lower() and '@MMN論文檢索器' not in msg:
                 print("非針對 bot 的訊息，略過回應")
                 return  # 當訊息不包含 "bot" 或特定標籤時不回應
             
