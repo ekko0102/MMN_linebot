@@ -9,7 +9,6 @@ import traceback
 import requests
 import redis
 
-
 app = Flask(__name__)
 
 # Redis 連接設定
