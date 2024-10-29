@@ -59,12 +59,8 @@ def GPT_response(user_id, text):
         else:
             response = client.beta.threads.messages.create(
                 thread_id=thread_id,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": text,
-                    }
-                ]
+                role="user",  # 指定角色為 "user"
+                content=text  # 指定內容為用戶的輸入訊息
             )
             print("API 回傳訊息：", response)  # 印出 API 回傳結果
 
