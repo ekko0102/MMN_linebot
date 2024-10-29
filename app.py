@@ -8,13 +8,26 @@ import time
 import traceback
 import requests
 import redis
+from urllib.parse import urlparse
+
+# 解析 REDIS_URL 環境變數
+redis_url = os.getenv('REDIS_URL')
+if redis_url:
+    url = urlparse(redis_url)
+    redis_host = url.hostname
+    redis_port = url.port
+else:
+    raise ValueError("REDIS_URL is not set in environment variables")
+
+# 使用 REDIS_URL 初始化 Redis 連接
+redis_db = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 
 app = Flask(__name__)
 
 # Redis 連接設定
-redis_host = os.getenv('REDIS_HOST', 'localhost')
-redis_port = os.getenv('REDIS_PORT', 6379)
-redis_db = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
+# redis_host = os.getenv('REDIS_HOST', 'localhost')
+# redis_port = os.getenv('REDIS_PORT', 6379)
+# redis_db = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 
 # Channel Access Token
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
