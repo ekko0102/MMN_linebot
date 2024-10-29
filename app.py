@@ -81,7 +81,7 @@ def GPT_response(user_id, text):
         messages = message_response.data
 
         # 只回傳角色為 assistant 的最新訊息
-        latest_message = next((msg for msg in messages if msg['role'] == 'assistant'), None)
+        latest_message = next((msg for msg in messages if msg.role == 'assistant'), None)
 
         if latest_message:
             return latest_message['content'][0]['text']['value']
