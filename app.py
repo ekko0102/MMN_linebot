@@ -122,7 +122,7 @@ def handle_message(event):
     try:
         # 獲取 chat_id
         chat_id = get_chat_id(event)
-        
+        send_loading_animation(chat_id)
         # 處理用戶訊息，使用 user_id 當作 Redis key
         user_id = chat_id
         GPT_answer = GPT_response(user_id, msg)
