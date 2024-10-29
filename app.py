@@ -9,7 +9,6 @@ import traceback
 import requests
 import redis
 
-
 app = Flask(__name__)
 
 # Redis 連接設定
@@ -19,10 +18,6 @@ if not redis_url:
     raise ValueError("REDIS_URL 環境變數未設置")
 # 初始化 Redis 客戶端，直接使用 URL
 redis_db = redis.StrictRedis.from_url(redis_url, decode_responses=True)
-
-# redis_host = os.getenv('REDIS_HOST', 'localhost')
-# redis_port = os.getenv('REDIS_PORT', 6379)
-# redis_db = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 
 # Channel Access Token
 line_bot_api = LineBotApi(os.getenv('CHANNEL_ACCESS_TOKEN'))
@@ -57,28 +52,18 @@ def GPT_response(user_id, text):
             # 將新的 thread_id 保存到 Redis 中
             redis_db.set(f"thread_id:{user_id}", thread_id)
         else:
-            # 檢查目前的 thread 是否有未完成的 run
-            max_retries = 10  # 設置最大等待次數
-            retry_count = 0
-            active_runs = client.beta.threads.runs.list(thread_id=thread_id).data
-
-            while active_runs and any(run.status != "completed" for run in active_runs):
-                print("當前 thread 的運行尚未完成，等待中...")
-                time.sleep(2)  # 等待 2 秒後重新檢查
-                retry_count += 1
-                if retry_count >= max_retries:
-                    print("等待超時，請稍後再試。")
-                    return "系統繁忙，請稍後再試。"  # 回傳錯誤訊息
-                active_runs = client.beta.threads.runs.list(thread_id=thread_id).data
-
-            # 發送訊息至 thread
+            # 如果已經有 thread_id，則添加新的訊息
             client.beta.threads.messages.create(
                 thread_id=thread_id,
-                role="user",
-                content=text
+                messages=[
+                    {
+                        "role": "user",
+                        "content": text,
+                    }
+                ]
             )
-
-        # 提交 thread 給 assistant 並取得最新的回覆
+        
+        # 提交 thread 給 assistant
         run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID)
 
         # 等待 run 完成
@@ -90,8 +75,7 @@ def GPT_response(user_id, text):
         message_response = client.beta.threads.messages.list(thread_id=thread_id)
         messages = message_response.data
         latest_message = messages[0]
-        print("最新的訊息內容：", latest_message.content[0].text.value)  # 印出最新訊息的內容
-
+        print("最新的訊息內容：", latest_message.content[0].text.value)
         return latest_message.content[0].text.value
 
     except Exception as e:
