@@ -58,16 +58,12 @@ def GPT_response(user_id, text):
             redis_db.set(f"thread_id:{user_id}", thread_id)
         else:
             # 如果已經有 thread_id，則添加新的訊息
-            client.beta.threads.messages.create(
+            response = client.beta.threads.messages.create(
                 thread_id=thread_id,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": text,
-                    }
-                ]
+                content=text  # 確認 API 的參數名稱
             )
-        
+            print("API 回傳訊息：", response)  # 印出 API 回傳結果
+
         # 提交 thread 給 assistant 並取得最新的回覆
         run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID)
 
@@ -76,22 +72,17 @@ def GPT_response(user_id, text):
             run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
             time.sleep(1)
         
-        # 獲取最新的 AI 回覆
+        # 獲取最新的訊息
         message_response = client.beta.threads.messages.list(thread_id=thread_id)
         messages = message_response.data
+        latest_message = messages[0]
+        print("最新的訊息內容：", latest_message.content[0].text.value)  # 印出最新訊息的內容
 
-        # 只回傳角色為 assistant 的最新訊息
-        latest_message = next((msg for msg in messages if msg.role == 'assistant'), None)
+        return latest_message.content[0].text.value
 
-        if latest_message:
-            return latest_message['content'][0]['text']['value']
-        else:
-            return "抱歉，無法獲取 AI 回覆。"
-        
     except Exception as e:
         print("Error in GPT_response:", e)
         raise
-
 
 def send_loading_animation(chat_id):
     url = 'https://api.line.me/v2/bot/chat/loading/start'
