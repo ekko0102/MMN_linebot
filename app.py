@@ -35,28 +35,58 @@ def GPT_response(user_id, text):
     try:
         # 嘗試從 Redis 中取得 thread_id
         thread_id = redis_db.get(f"thread_id:{user_id}")
-        
         client = openai.OpenAI()
 
-        # 如果 Redis 中沒有 thread_id，創建新的 thread
+        # 設置最大等待時間，避免無限等待
+        max_wait_time = 30  # 最長等待時間（秒）
+        start_time = time.time()
+
         if not thread_id:
-            thread = client.beta.threads.messages.create(
-                thread_id=thread_id,
-                role="user",  # 指定訊息角色為 "user"
-                content=text  # 用戶的訊息內容
+            # 如果沒有 thread_id，創建新的 thread
+            thread = client.beta.threads.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": text,
+                    }
+                ]
             )
             thread_id = thread.id
-            # 將新的 thread_id 保存到 Redis 中
             redis_db.set(f"thread_id:{user_id}", thread_id)
         else:
-            # 如果已經有 thread_id，則添加新的訊息
+            # 檢查是否有未完成的 run 並等待，但設置最大等待時間
+            active_runs = client.beta.threads.runs.list(thread_id=thread_id).data
+            while active_runs and any(run.status != "completed" for run in active_runs):
+                print("當前 thread 的運行尚未完成，等待中...")
+                time.sleep(2)  # 每 2 秒重新檢查一次
+
+                # 檢查等待時間是否超過最大時間限制
+                if time.time() - start_time > max_wait_time:
+                    print("等待時間過長，刪除無效的 thread 並創建新 thread。")
+                    redis_db.delete(f"thread_id:{user_id}")  # 刪除 Redis 中的無效 thread
+                    # 創建新 thread 並儲存
+                    thread = client.beta.threads.create(
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": text,
+                            }
+                        ]
+                    )
+                    thread_id = thread.id
+                    redis_db.set(f"thread_id:{user_id}", thread_id)
+                    break
+
+                active_runs = client.beta.threads.runs.list(thread_id=thread_id).data
+
+            # 如果無效的 thread 已被替換，這裡將使用新的 thread_id
             client.beta.threads.messages.create(
                 thread_id=thread_id,
-                role="user",  # 指定訊息角色為 "user"
-                content=text  # 用戶的訊息內容
+                role="user",
+                content=text
             )
-        
-        # 提交 thread 給 assistant
+
+        # 提交 thread 給 assistant 並取得最新的回覆
         run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID)
 
         # 等待 run 完成
@@ -69,6 +99,7 @@ def GPT_response(user_id, text):
         messages = message_response.data
         latest_message = messages[0]
         print("最新的訊息內容：", latest_message.content[0].text.value)
+
         return latest_message.content[0].text.value
 
     except Exception as e:
