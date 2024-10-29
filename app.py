@@ -38,38 +38,53 @@ ASSISTANT_ID = os.getenv('OPENAI_MODEL_ID')
 
 def GPT_response(user_id, text):
     try:
+        # 嘗試從 Redis 中取得 thread_id
         thread_id = redis_db.get(f"thread_id:{user_id}")
+        
         client = openai.OpenAI()
 
+        # 如果 Redis 中沒有 thread_id，創建新的 thread
         if not thread_id:
             thread = client.beta.threads.create(
-                messages=[{"role": "user", "content": text}]
+                messages=[
+                    {
+                        "role": "user",
+                        "content": text,
+                    }
+                ]
             )
             thread_id = thread.id
+            # 將新的 thread_id 保存到 Redis 中
             redis_db.set(f"thread_id:{user_id}", thread_id)
         else:
-            # 檢查當前是否有未完成的 `run`
-            active_run = client.beta.threads.runs.list(thread_id=thread_id).data
-            if active_run and any(run.status != "completed" for run in active_run):
-                print("當前 thread 的運行尚未完成，請稍候再試。")
-                return "當前正在處理中，請稍候再試。"
+            # 檢查目前的 thread 是否有未完成的 run
+            active_runs = client.beta.threads.runs.list(thread_id=thread_id).data
+            while active_runs and any(run.status != "completed" for run in active_runs):
+                print("當前 thread 的運行尚未完成，等待中...")
+                time.sleep(2)  # 等待 2 秒後重新檢查
+                active_runs = client.beta.threads.runs.list(thread_id=thread_id).data
 
             # 發送訊息至 thread
-            response = client.beta.threads.messages.create(
-                thread_id=thread_id, role="user", content=text
+            client.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=text
             )
-            print("API 回傳訊息：", response)
 
-        # 繼續執行 thread
+        # 提交 thread 給 assistant 並取得最新的回覆
         run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID)
+
+        # 等待 run 完成
         while run.status != "completed":
             run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
             time.sleep(1)
         
+        # 獲取最新的訊息
         message_response = client.beta.threads.messages.list(thread_id=thread_id)
         messages = message_response.data
         latest_message = messages[0]
-        print("最新的訊息內容：", latest_message.content[0].text.value)
+        print("最新的訊息內容：", latest_message.content[0].text.value)  # 印出最新訊息的內容
+
         return latest_message.content[0].text.value
 
     except Exception as e:
