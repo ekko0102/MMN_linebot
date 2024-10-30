@@ -157,7 +157,7 @@ def handle_message(event):
         
         # 判斷是否在群組中，並且訊息是否包含特定關鍵字（例如 "bot" 或特定標籤）
         if event.source.type == 'group':
-            if 'bot' not in msg.lower() and '@MMN論文檢索器' not in msg:
+            if 'bot' not in msg.lower() and '@MMNLLM' not in msg:
                 print("非針對 bot 的訊息，略過回應")
                 return  # 當訊息不包含 "bot" 或特定標籤時不回應
             
